@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { getOrders } from '../services/db';
+import { db } from '../firebase';
+import { doc, onSnapshot } from 'firebase/firestore';
 import { ShieldCheck, CheckCircle, Smartphone, QrCode } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -18,24 +19,20 @@ const PaymentGateway = () => {
             return;
         }
 
-        // Poll the mock database every 2 seconds to check if the Admin has verified the payment
-        // by changing the order status to 'Preparing' or 'Completed'
-        const interval = setInterval(() => {
-            const allOrders = getOrders();
-            const currentOrder = allOrders.find(o => o.id === orderData.id);
-            
-            if (currentOrder && (currentOrder.status === 'Preparing' || currentOrder.status === 'Completed')) {
-                setIsSuccess(true);
-                setIsProcessing(false);
-                clearInterval(interval);
-                
-                setTimeout(() => {
-                    navigate('/my-orders', { replace: true, state: { paymentSuccess: true } });
-                }, 3000);
+        const unsub = onSnapshot(doc(db, 'orders', orderData.id), (docSnap) => {
+            if (docSnap.exists()) {
+                const currentOrder = docSnap.data();
+                if (currentOrder.status === 'Preparing' || currentOrder.status === 'Completed') {
+                    setIsSuccess(true);
+                    setIsProcessing(false);
+                    setTimeout(() => {
+                        navigate('/my-orders', { replace: true, state: { paymentSuccess: true } });
+                    }, 3000);
+                }
             }
-        }, 2000);
+        });
 
-        return () => clearInterval(interval);
+        return () => unsub();
     }, [orderData, navigate]);
 
     // Build the UPI Deep Link according to standard specifications

@@ -1,12 +1,14 @@
 // src/services/db.js
-// A simple service to mock a backend using localStorage
+// Database service using Firebase Cloud Firestore for Products and Orders, 
+// and localStorage for active session UserAuth tracking.
 
-const PRODUCTS_KEY = 'juicebox_products';
-const ORDERS_KEY = 'juicebox_orders';
+import { db } from '../firebase';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, setDoc } from 'firebase/firestore';
+
 const USERS_KEY = 'juicebox_users';
 const CURRENT_USER_KEY = 'juicebox_current_user';
 
-// Default products to populate if the store is empty
+// Default products to populate if the database is empty
 const defaultProducts = [
   {
     id: 1,
@@ -62,7 +64,6 @@ const defaultProducts = [
 ];
 
 // --- USERS ---
-
 export const getUsers = () => {
   const stored = localStorage.getItem(USERS_KEY);
   return stored ? JSON.parse(stored) : [];
@@ -99,78 +100,63 @@ export const getCurrentUser = () => {
   return stored ? JSON.parse(stored) : null;
 };
 
-// --- PRODUCTS ---
+// --- PRODUCTS (Firebase Firestore) ---
 
-export const getProducts = () => {
-  let stored = localStorage.getItem(PRODUCTS_KEY);
-  
-  // Force update any cached default products that have broken/old images
-  if (stored) {
-    let products = JSON.parse(stored);
-    let updated = false;
-    products = products.map(p => {
-      const def = defaultProducts.find(d => d.id === p.id);
-      if (def && p.image !== def.image) {
-        p.image = def.image;
-        updated = true;
-      }
-      return p;
-    });
-    if (updated) {
-      localStorage.setItem(PRODUCTS_KEY, JSON.stringify(products));
-      stored = JSON.stringify(products);
+export const getProducts = async () => {
+  const querySnapshot = await getDocs(collection(db, 'products'));
+  let products = querySnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+
+  // Populate default products if Cloud Database is empty
+  if (products.length === 0) {
+    for (const prod of defaultProducts) {
+      // Use the static ID as the document ID for consistency
+      await setDoc(doc(db, 'products', prod.id.toString()), prod);
     }
-  }
-
-  if (!stored) {
-    localStorage.setItem(PRODUCTS_KEY, JSON.stringify(defaultProducts));
-    return defaultProducts;
+    const freshSnapshot = await getDocs(collection(db, 'products'));
+    products = freshSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
   }
   
-  return JSON.parse(stored);
+  return products;
 };
 
-export const addProduct = (product) => {
-  const products = getProducts();
-  const newProduct = { ...product, id: Date.now() };
-  products.push(newProduct);
-  localStorage.setItem(PRODUCTS_KEY, JSON.stringify(products));
-  return newProduct;
+export const addProduct = async (product) => {
+  const docRef = await addDoc(collection(db, 'products'), product);
+  return { id: docRef.id, ...product };
 };
 
-export const deleteProduct = (id) => {
-  const products = getProducts();
-  const updated = products.filter(p => p.id !== id);
-  localStorage.setItem(PRODUCTS_KEY, JSON.stringify(updated));
-  return updated;
+export const deleteProduct = async (id) => {
+  await deleteDoc(doc(db, 'products', id.toString()));
 };
 
-export const updateProduct = (id, updatedFields) => {
-  const products = getProducts();
-  const updatedProducts = products.map(p => p.id === id ? { ...p, ...updatedFields } : p);
-  localStorage.setItem(PRODUCTS_KEY, JSON.stringify(updatedProducts));
+export const updateProduct = async (id, updatedFields) => {
+  const productRef = doc(db, 'products', id.toString());
+  await updateDoc(productRef, updatedFields);
 };
 
-export const getOrders = () => {
-  const stored = localStorage.getItem(ORDERS_KEY);
-  return stored ? JSON.parse(stored) : [];
+// --- ORDERS (Firebase Firestore) ---
+
+export const getOrders = async () => {
+  const querySnapshot = await getDocs(collection(db, 'orders'));
+  const orders = querySnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+  // Sort by date descending (newest first)
+  return orders.sort((a, b) => new Date(b.date) - new Date(a.date));
 };
 
-export const addOrder = (order) => {
-  const orders = getOrders();
+export const addOrder = async (order) => {
+  const orderId = 'ORD-' + Math.floor(100000 + Math.random() * 900000);
   const newOrder = {
     ...order,
-    id: 'ORD-' + Math.floor(100000 + Math.random() * 900000), // e.g. ORD-123456
+    id: orderId,
     status: 'Pending',
     date: new Date().toISOString()
   };
-  const updatedOrders = [newOrder, ...orders];
-  localStorage.setItem(ORDERS_KEY, JSON.stringify(updatedOrders));
+  
+  // Save order to Firestore with a custom readable ID
+  await setDoc(doc(db, 'orders', orderId), newOrder);
   return newOrder;
 };
 
-export const updateOrderStatus = (id, status) => {
-  const orders = getOrders();
-  const updatedOrders = orders.map(o => o.id === id ? { ...o, status } : o);
-  localStorage.setItem(ORDERS_KEY, JSON.stringify(updatedOrders));
+export const updateOrderStatus = async (id, status) => {
+  const orderRef = doc(db, 'orders', id.toString());
+  await updateDoc(orderRef, { status });
 };

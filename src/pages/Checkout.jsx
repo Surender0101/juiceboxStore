@@ -22,7 +22,7 @@ const Checkout = ({ cartItems, clearCart }) => {
     const deliveryFee = subtotal > 0 ? 5.00 : 0;
     const total = subtotal + tax + deliveryFee;
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
 
         const formData = new FormData(e.target);
@@ -41,7 +41,7 @@ const Checkout = ({ cartItems, clearCart }) => {
             status: 'Payment Pending'
         };
 
-        const savedOrder = addOrder(orderData); // Save order for admin tracking
+        const savedOrder = await addOrder(orderData); // Save order for admin tracking
 
         // Redirect to Mock Payment Gateway
         navigate('/payment', { state: { order: savedOrder } });

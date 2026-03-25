@@ -18,13 +18,23 @@ const Auth = () => {
         
         try {
             if (isLogin) {
+                // Admin Login Override
+                if (formData.email === 'surender' && formData.password === '112004') {
+                    const adminUser = { id: 0, name: 'Admin Surender', email: 'surender', role: 'admin' };
+                    localStorage.setItem('juicebox_current_user', JSON.stringify(adminUser));
+                    window.dispatchEvent(new Event('authChange'));
+                    navigate('/admin');
+                    return;
+                }
+                
                 loginUser(formData.email, formData.password);
+                window.dispatchEvent(new Event('authChange'));
+                navigate(returnUrl);
             } else {
                 registerUser(formData.name, formData.email, formData.password);
+                window.dispatchEvent(new Event('authChange'));
+                navigate(returnUrl);
             }
-            // Trigger storage event so that navbar updates instantly
-            window.dispatchEvent(new Event('authChange'));
-            navigate(returnUrl);
         } catch (err) {
             setError(err.message);
         }
@@ -59,7 +69,7 @@ const Auth = () => {
                         <input type="text" placeholder="Full Name" required className="form-input mb-3 w-100" 
                                value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
                     )}
-                    <input type="email" placeholder="Email Address" required className="form-input mb-3 w-100" 
+                    <input type={isLogin ? "text" : "email"} placeholder={isLogin ? "Email or Admin Username" : "Email Address"} required className="form-input mb-3 w-100" 
                            value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
                     <input type="password" placeholder="Password" required className="form-input mb-4 w-100" 
                            value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />

@@ -11,7 +11,7 @@ const MenuSection = ({ addToCart }) => {
     const [products, setProducts] = useState([]);
 
     useEffect(() => {
-        setProducts(getProducts());
+        getProducts().then(setProducts);
     }, []);
 
     const filteredProducts = activeTab === 'All'

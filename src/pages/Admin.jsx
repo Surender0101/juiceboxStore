@@ -1,15 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { getProducts, addProduct, getOrders, updateOrderStatus, deleteProduct } from '../services/db';
+import { Navigate } from 'react-router-dom';
+import { getProducts, addProduct, getOrders, updateOrderStatus, deleteProduct, getCurrentUser } from '../services/db';
 import { Package, ShoppingBag, Plus, CreditCard, Trash2 } from 'lucide-react';
 import './Admin.css';
 
 const Admin = () => {
-    const [isLoggedIn, setIsLoggedIn] = useState(false);
-    const [username, setUsername] = useState('');
-    const [password, setPassword] = useState('');
     const [activeTab, setActiveTab] = useState('products');
     const [products, setProducts] = useState([]);
     const [orders, setOrders] = useState([]);
+    const user = getCurrentUser();
 
     // New product form state
     const [newProduct, setNewProduct] = useState({
@@ -21,13 +20,18 @@ const Admin = () => {
     });
 
     useEffect(() => {
-        setProducts(getProducts());
-        setOrders(getOrders());
+        const loadData = async () => {
+            const p = await getProducts();
+            const o = await getOrders();
+            setProducts(p);
+            setOrders(o);
+        };
+        loadData();
     }, []);
 
-    const handleAddProduct = (e) => {
+    const handleAddProduct = async (e) => {
         e.preventDefault();
-        const added = addProduct({
+        const added = await addProduct({
             ...newProduct,
             price: parseFloat(newProduct.price)
         });
@@ -36,45 +40,20 @@ const Admin = () => {
         alert("Product added successfully!");
     };
 
-    const handleUpdateOrderStatus = (orderId, newStatus) => {
-        updateOrderStatus(orderId, newStatus);
-        setOrders(getOrders()); // Refresh state
+    const handleUpdateOrderStatus = async (orderId, newStatus) => {
+        await updateOrderStatus(orderId, newStatus);
+        setOrders(await getOrders()); // Refresh state
     };
 
-    const handleDeleteProduct = (id) => {
+    const handleDeleteProduct = async (id) => {
         if (window.confirm("Are you sure you want to delete this product?")) {
-            const updated = deleteProduct(id);
-            setProducts(updated);
+            await deleteProduct(id);
+            setProducts(await getProducts());
         }
     };
 
-    const handleLogin = (e) => {
-        e.preventDefault();
-        // Updated secure local credentials
-        if (username === 'surender' && password === '112004') {
-            setIsLoggedIn(true);
-        } else {
-            alert("Invalid credentials! Please try again.");
-        }
-    };
-
-    if (!isLoggedIn) {
-        return (
-            <div className="admin-page section-padding" style={{ paddingTop: '100px', minHeight: '80vh' }}>
-                <div className="container d-flex justify-content-center align-center" style={{ minHeight: '50vh' }}>
-                    <div className="card p-4 mx-auto" style={{ maxWidth: '400px', width: '100%' }}>
-                        <h2 className="mb-4 text-center">Admin Login</h2>
-                        <form onSubmit={handleLogin}>
-                            <input required type="text" placeholder="Username (surender)" className="form-input mb-3 w-100" 
-                                value={username} onChange={e => setUsername(e.target.value)} />
-                            <input required type="password" placeholder="Password" className="form-input mb-4 w-100"
-                                value={password} onChange={e => setPassword(e.target.value)} />
-                            <button type="submit" className="btn btn-primary w-100 justify-content-center">Login to Dashboard</button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        );
+    if (!user || user.role !== 'admin') {
+        return <Navigate to="/auth" replace />;
     }
 
     return (

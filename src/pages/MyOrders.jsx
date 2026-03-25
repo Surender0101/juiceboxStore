@@ -19,11 +19,14 @@ const MyOrders = () => {
             return;
         }
         // Fetch and filter orders for this user by email
-        const allOrders = getOrders();
-        const myOrders = allOrders.filter(
-            o => o.customer && o.customer.email === user.email
-        );
-        setOrders(myOrders);
+        const fetchOrders = async () => {
+            const allOrders = await getOrders();
+            const myOrders = allOrders.filter(
+                o => o.customer && o.customer.email === user.email
+            );
+            setOrders(myOrders);
+        };
+        fetchOrders();
     }, [user?.email, navigate]);
 
     if (!user) return null;

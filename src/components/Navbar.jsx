@@ -46,7 +46,6 @@ const Navbar = ({ toggleCart, cartCount }) => {
                     <a href="#about">About</a>
                     <a href="#menu">Menu</a>
                     <a href="#locations">Locations</a>
-                    <Link to="/admin">Admin</Link>
                 </div>
 
                 {/* Actions */}
@@ -63,9 +62,15 @@ const Navbar = ({ toggleCart, cartCount }) => {
                     <div className="desktop-only d-flex align-center" style={{ marginLeft: '10px', gap: '8px' }}>
                         {user ? (
                             <>
-                                <Link to="/my-orders" className="btn btn-primary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.9rem' }}>
-                                    My Orders
-                                </Link>
+                                {user.role === 'admin' ? (
+                                    <Link to="/admin" className="btn btn-primary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.9rem', backgroundColor: '#8b5cf6' }}>
+                                        Admin Dashboard
+                                    </Link>
+                                ) : (
+                                    <Link to="/my-orders" className="btn btn-primary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.9rem' }}>
+                                        My Orders
+                                    </Link>
+                                )}
                                 <button className="btn btn-outline d-flex align-center gap-2" onClick={handleLogout} style={{ padding: '0.4rem 0.8rem', fontSize: '0.9rem' }}>
                                     <UserIcon size={16} /> Logout
                                 </button>
@@ -94,12 +99,17 @@ const Navbar = ({ toggleCart, cartCount }) => {
                     <a href="#about" onClick={() => setIsMobileMenuOpen(false)}>About</a>
                     <a href="#menu" onClick={() => setIsMobileMenuOpen(false)}>Menu</a>
                     <a href="#locations" onClick={() => setIsMobileMenuOpen(false)}>Locations</a>
-                    <Link to="/admin" onClick={() => setIsMobileMenuOpen(false)}>Admin</Link>
                     {user ? (
                         <>
-                            <Link to="/my-orders" className="btn btn-primary w-100 justify-content-center mt-2" onClick={() => setIsMobileMenuOpen(false)}>
-                                My Orders
-                            </Link>
+                            {user.role === 'admin' ? (
+                                <Link to="/admin" className="btn btn-primary w-100 justify-content-center mt-2" onClick={() => setIsMobileMenuOpen(false)} style={{backgroundColor: '#8b5cf6'}}>
+                                    Admin Dashboard
+                                </Link>
+                            ) : (
+                                <Link to="/my-orders" className="btn btn-primary w-100 justify-content-center mt-2" onClick={() => setIsMobileMenuOpen(false)}>
+                                    My Orders
+                                </Link>
+                            )}
                             <button className="btn btn-outline mt-2 w-100 justify-content-center" onClick={() => { handleLogout(); setIsMobileMenuOpen(false); }}>
                                 Logout
                             </button>
