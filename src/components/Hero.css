@@ -1,0 +1,147 @@
+.hero {
+    padding: 140px 0 80px 0;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background-color: rgba(76, 175, 80, 0.1);
+    color: var(--color-secondary);
+    border-radius: var(--radius-full);
+    font-weight: 700;
+    font-size: 0.875rem;
+}
+
+.badge-pulse {
+    width: 8px;
+    height: 8px;
+    background-color: var(--color-secondary);
+    border-radius: 50%;
+    position: relative;
+}
+
+.badge-pulse::after {
+    content: '';
+    position: absolute;
+    top: -4px;
+    left: -4px;
+    right: -4px;
+    bottom: -4px;
+    background-color: var(--color-secondary);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+    opacity: 0.5;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(0.5);
+        opacity: 0.8;
+    }
+
+    100% {
+        transform: scale(2);
+        opacity: 0;
+    }
+}
+
+.text-gradient {
+    background: linear-gradient(135deg, var(--color-primary), var(--color-accent-watermelon));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.hero-stats {
+    border-top: 1px solid var(--color-border);
+    gap: 2rem;
+}
+
+.stat-value {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--color-text);
+}
+
+.stat-label {
+    font-size: 0.875rem;
+    color: var(--color-text-muted);
+}
+
+.hero-image-wrapper {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 500px;
+}
+
+.hero-blob {
+    position: absolute;
+    width: 400px;
+    height: 400px;
+    background: radial-gradient(circle, var(--color-accent-mango) 0%, rgba(255, 193, 7, 0) 70%);
+    opacity: 0.4;
+    z-index: -1;
+    filter: blur(40px);
+}
+
+.hero-image.main-img {
+    width: 80%;
+    height: auto;
+    border-radius: var(--radius-full) var(--radius-full) 0 0;
+    box-shadow: var(--shadow-lg);
+    z-index: 2;
+    object-fit: cover;
+    aspect-ratio: 3/4;
+}
+
+.floating-fruit {
+    position: absolute;
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    object-fit: cover;
+    box-shadow: var(--shadow-md);
+    z-index: 3;
+}
+
+.fruit-1 {
+    bottom: 10%;
+    left: 0;
+}
+
+.fruit-2 {
+    top: 10%;
+    right: 0;
+}
+
+@media (max-width: 992px) {
+    .hero {
+        padding-top: 120px;
+        text-align: center;
+    }
+
+    .hero-badge {
+        margin: 0 auto;
+    }
+
+    .hero-actions {
+        justify-content: center;
+    }
+
+    .hero-stats {
+        justify-content: center;
+    }
+
+    .hero-image-wrapper {
+        margin-top: 3rem;
+    }
+}
