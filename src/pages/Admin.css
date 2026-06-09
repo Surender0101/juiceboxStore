@@ -87,3 +87,12 @@
 .admin-table tbody tr {
     border-bottom: 1px solid var(--color-border);
 }
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.spin-icon {
+    animation: spin 1s linear infinite;
+}

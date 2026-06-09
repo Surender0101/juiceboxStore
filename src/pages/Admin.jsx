@@ -6,10 +6,13 @@ import {
   updateOrderStatus,
   deleteProduct,
   getCurrentUser,
+  getOrdersLocal,
+  getOrders,
   subscribeToOrders,
   ORDER_STATUSES,
 } from '../services/db';
 import { formatINR } from '../utils/formatPrice';
+import ProductImage from '../components/ProductImage';
 import { Package, ShoppingBag, Plus, Trash2, RefreshCw } from 'lucide-react';
 import './Admin.css';
 
@@ -20,7 +23,7 @@ const Admin = () => {
   const [activeTab, setActiveTab] = useState('orders');
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
-  const [loadingOrders, setLoadingOrders] = useState(true);
+  const [syncingOrders, setSyncingOrders] = useState(false);
   const [updatingOrderId, setUpdatingOrderId] = useState(null);
   const [user, setUser] = useState(() => getCurrentUser());
 
@@ -45,14 +48,26 @@ const Admin = () => {
   useEffect(() => {
     if (user?.role !== 'admin') return undefined;
 
-    setLoadingOrders(true);
+    // Show orders saved in this browser right away
+    setOrders(getOrdersLocal());
+    setSyncingOrders(true);
+
     const unsubscribe = subscribeToOrders((latestOrders) => {
       setOrders(latestOrders);
-      setLoadingOrders(false);
+      setSyncingOrders(false);
     });
 
     return unsubscribe;
   }, [user?.role]);
+
+  const handleRefreshOrders = () => {
+    setOrders(getOrdersLocal());
+    setSyncingOrders(true);
+    getOrders()
+      .then(setOrders)
+      .catch(console.error)
+      .finally(() => setSyncingOrders(false));
+  };
 
   const handleAddProduct = async (e) => {
     e.preventDefault();
@@ -186,7 +201,7 @@ const Admin = () => {
                 {products.map((p) => (
                   <div key={p.id} className="admin-product-item d-flex justify-content-between align-center p-2 border rounded">
                     <div className="d-flex gap-3 align-center">
-                      <img src={p.image} alt={p.name} style={{ width: '60px', height: '60px', objectFit: 'cover', borderRadius: '8px' }} />
+                      <ProductImage src={p.image} alt={p.name} style={{ width: '60px', height: '60px', objectFit: 'cover', borderRadius: '8px' }} />
                       <div>
                         <h4 style={{ margin: 0, fontSize: '1rem' }}>{p.name}</h4>
                         <div className="text-muted" style={{ fontSize: '0.85rem' }}>
@@ -214,14 +229,19 @@ const Admin = () => {
           <div className="admin-section card p-4">
             <div className="d-flex justify-content-between align-center mb-3 flex-wrap gap-2">
               <h3 className="mb-0">Customer Orders ({orders.length})</h3>
-              <span className="text-muted d-flex align-center gap-1" style={{ fontSize: '0.85rem' }}>
-                <RefreshCw size={14} /> Auto-refreshes every 4 seconds
-              </span>
+              <button
+                type="button"
+                className="btn btn-outline d-flex align-center gap-1"
+                style={{ padding: '0.4rem 0.9rem', fontSize: '0.85rem' }}
+                onClick={handleRefreshOrders}
+                disabled={syncingOrders}
+              >
+                <RefreshCw size={14} className={syncingOrders ? 'spin-icon' : ''} />
+                {syncingOrders ? 'Syncing...' : 'Refresh'}
+              </button>
             </div>
 
-            {loadingOrders && orders.length === 0 ? (
-              <p className="text-muted">Syncing orders from cloud...</p>
-            ) : orders.length === 0 ? (
+            {orders.length === 0 ? (
               <div className="text-center p-4">
                 <p className="text-muted mb-2">No orders yet.</p>
                 <p className="text-muted" style={{ fontSize: '0.85rem' }}>

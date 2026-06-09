@@ -3,6 +3,7 @@ import { Plus, Star, Flame } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getProducts } from '../services/db';
 import { formatINR } from '../utils/formatPrice';
+import ProductImage from './ProductImage';
 import './MenuSection.css';
 
 const categories = ['All', 'Fruit Juices', 'Smoothies', 'Detox Juices', 'Protein Shakes', 'Functional'];
@@ -64,7 +65,7 @@ const MenuSection = ({ addToCart }) => {
                   className="product-card card"
                 >
                   <div className="product-img-wrapper">
-                    <img src={product.image} alt={product.name} className="product-img" loading="lazy" />
+                    <ProductImage src={product.image} alt={product.name} className="product-img" />
                     {product.popular && (
                       <span className="product-badge popular">
                         <Flame size={12} /> Bestseller

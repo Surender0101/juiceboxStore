@@ -2,6 +2,7 @@ import React from 'react';
 import { X, Minus, Plus, ShoppingBag } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { formatINR } from '../utils/formatPrice';
+import ProductImage from './ProductImage';
 import './CartSidebar.css';
 
 const CartSidebar = ({ isOpen, onClose, cartItems, updateQuantity, removeFromCart }) => {
@@ -30,7 +31,7 @@ const CartSidebar = ({ isOpen, onClose, cartItems, updateQuantity, removeFromCar
                             {cartItems.map(item => (
                                 <div key={item.id} className="cart-item">
                                     <div className="cart-item-img">
-                                        <img src={item.image || 'https://images.unsplash.com/photo-1621506289937-a8e4df240d0b?auto=format&fit=crop&q=80&w=200'} alt={item.name} />
+                                        <ProductImage src={item.image} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                     </div>
                                     <div className="cart-item-details">
                                         <div className="d-flex justify-content-between">

@@ -1,11 +1,12 @@
 import { db, ensureFirebaseAuth } from '../firebase';
 import { collection, getDocs, getDoc, addDoc, updateDoc, deleteDoc, doc, setDoc, onSnapshot } from 'firebase/firestore';
+import { PRODUCT_CATALOG, catalogById } from '../data/productCatalog';
 
 const USERS_KEY = 'juicebox_users';
 const CURRENT_USER_KEY = 'juicebox_current_user';
 const ORDERS_KEY = 'juicebox_orders';
 const CATALOG_VERSION_KEY = 'juicebox_catalog_version';
-const CATALOG_VERSION = '4';
+const CATALOG_VERSION = '5';
 const ORDER_DOC_PREFIX = 'order_';
 const CLOUD_TIMEOUT_MS = 8000;
 
@@ -43,176 +44,27 @@ const safeSetItem = (key, value) => {
   }
 };
 
-const normalizeProduct = (product) => ({
-  ...product,
-  desc: product.desc || product.description || '',
-  price: Number(product.price) || 0,
-  calories: product.calories || 120,
-  size: product.size || '350ml',
-  rating: product.rating || 4.5,
-});
+const defaultProducts = PRODUCT_CATALOG;
 
-const defaultProducts = [
-  {
-    id: 1,
-    name: 'Tropical Sunrise',
-    desc: 'Alphonso mango, pineapple, orange & guava — a sunshine blend',
-    price: 149,
-    category: 'Fruit Juices',
-    calories: 142,
-    size: '350ml',
-    rating: 4.9,
-    image: 'https://images.unsplash.com/photo-1621506289937-a8e4df240d0b?auto=format&fit=crop&w=600&q=80',
-    popular: true,
-  },
-  {
-    id: 2,
-    name: 'Citrus Zing',
-    desc: 'Fresh orange, grapefruit, lemon & ginger kick',
-    price: 129,
-    category: 'Fruit Juices',
-    calories: 98,
-    size: '350ml',
-    rating: 4.7,
-    image: 'https://images.unsplash.com/photo-1613478511701-04aa370f7b71?auto=format&fit=crop&w=600&q=80',
-    popular: true,
-  },
-  {
-    id: 3,
-    name: 'Mango Lassi Fusion',
-    desc: 'Creamy mango, yogurt & cardamom — Indian classic',
-    price: 159,
-    category: 'Fruit Juices',
-    calories: 168,
-    size: '400ml',
-    rating: 4.8,
-    image: 'https://images.unsplash.com/photo-1633506553767-f869018b8ac6?auto=format&fit=crop&w=600&q=80',
-  },
-  {
-    id: 4,
-    name: 'Watermelon Cooler',
-    desc: 'Chilled watermelon, mint & lime — ultra refreshing',
-    price: 119,
-    category: 'Fruit Juices',
-    calories: 72,
-    size: '400ml',
-    rating: 4.6,
-    image: 'https://images.unsplash.com/photo-1563564817-c2b16df8c882?auto=format&fit=crop&w=600&q=80',
-  },
-  {
-    id: 5,
-    name: 'Berry Blast',
-    desc: 'Strawberry, blueberry, raspberry & almond milk',
-    price: 199,
-    category: 'Smoothies',
-    calories: 185,
-    size: '400ml',
-    rating: 4.9,
-    image: 'https://images.unsplash.com/photo-1553530666-ba11a7da4428?auto=format&fit=crop&w=600&q=80',
-    popular: true,
-  },
-  {
-    id: 6,
-    name: 'Chocolate Banana Smoothie',
-    desc: 'Ripe banana, cocoa, dates & oat milk',
-    price: 179,
-    category: 'Smoothies',
-    calories: 210,
-    size: '400ml',
-    rating: 4.7,
-    image: 'https://images.unsplash.com/photo-1572490122747-3969b75c6993?auto=format&fit=crop&w=600&q=80',
-  },
-  {
-    id: 7,
-    name: 'Green Detox',
-    desc: 'Spinach, kale, apple, celery & lemon cleanse',
-    price: 189,
-    category: 'Detox Juices',
-    calories: 88,
-    size: '350ml',
-    rating: 4.8,
-    image: 'https://images.unsplash.com/photo-1502741126164-b1184000106d?auto=format&fit=crop&w=600&q=80',
-    popular: true,
-  },
-  {
-    id: 8,
-    name: 'Amla Immunity Shot',
-    desc: 'Pure amla, turmeric & honey — daily immunity boost',
-    price: 99,
-    category: 'Detox Juices',
-    calories: 45,
-    size: '100ml',
-    rating: 4.9,
-    image: 'https://images.unsplash.com/photo-1546548970-69c40f780978?auto=format&fit=crop&w=600&q=80',
-  },
-  {
-    id: 9,
-    name: 'Beet Root Vitality',
-    desc: 'Beetroot, carrot, apple & ginger for natural energy',
-    price: 169,
-    category: 'Detox Juices',
-    calories: 110,
-    size: '350ml',
-    rating: 4.6,
-    image: 'https://images.unsplash.com/photo-1590412201108-23fd526749c0?auto=format&fit=crop&w=600&q=80',
-  },
-  {
-    id: 10,
-    name: 'Protein Power',
-    desc: 'Banana, peanut butter, whey protein & oat milk',
-    price: 249,
-    category: 'Protein Shakes',
-    calories: 320,
-    size: '450ml',
-    rating: 4.8,
-    image: 'https://images.unsplash.com/photo-1593095948071-14c416f6a29a?auto=format&fit=crop&w=600&q=80',
-    popular: true,
-  },
-  {
-    id: 11,
-    name: 'Peanut Butter Fuel',
-    desc: 'Roasted peanut, banana, flax seeds & almond milk',
-    price: 229,
-    category: 'Protein Shakes',
-    calories: 295,
-    size: '450ml',
-    rating: 4.7,
-    image: 'https://images.unsplash.com/photo-1488477181946-6428a0291777?auto=format&fit=crop&w=600&q=80',
-  },
-  {
-    id: 12,
-    name: 'Turmeric Golden Milk',
-    desc: 'Turmeric, almond milk, cinnamon & black pepper',
-    price: 159,
-    category: 'Functional',
-    calories: 130,
-    size: '300ml',
-    rating: 4.8,
-    image: 'https://images.unsplash.com/photo-1564890369478-c89d98d30bbb?auto=format&fit=crop&w=600&q=80',
-  },
-];
-
-const defaultProductMap = Object.fromEntries(
-  defaultProducts.map((p) => [p.id.toString(), normalizeProduct(p)])
-);
-
-const mergeWithCatalogDefaults = (product) => {
-  const normalized = normalizeProduct(product);
-  const defaults = defaultProductMap[normalized.id?.toString()];
-  if (!defaults) return normalized;
-  return normalizeProduct({
-    ...defaults,
-    ...normalized,
-    name: defaults.name,
-    desc: defaults.desc,
-    image: defaults.image,
-    category: defaults.category,
-    calories: defaults.calories,
-    size: defaults.size,
-    rating: defaults.rating,
-    popular: defaults.popular ?? normalized.popular,
-  });
+const normalizeProduct = (product) => {
+  const catalog = catalogById[product?.id?.toString()];
+  const base = catalog || product;
+  return {
+    ...base,
+    ...product,
+    id: product?.id ?? base.id,
+    desc: product?.desc || product?.description || base.desc || '',
+    price: Number(product?.price ?? base.price) || 0,
+    calories: product?.calories ?? base.calories ?? 120,
+    size: product?.size ?? base.size ?? '350ml',
+    rating: product?.rating ?? base.rating ?? 4.5,
+    image: catalog?.image || product?.image || base.image || '/products/fallback-juice.svg',
+    name: catalog?.name || product?.name || base.name,
+    category: catalog?.category || product?.category || base.category,
+  };
 };
+
+const mergeWithCatalogDefaults = (product) => normalizeProduct(product);
 
 // --- USERS ---
 
@@ -301,7 +153,7 @@ const syncProductCatalog = async () => {
 
   for (const prod of defaultProducts) {
     try {
-      await setDoc(doc(db, 'products', prod.id.toString()), prod, { merge: true });
+      await setDoc(doc(db, 'products', prod.id.toString()), prod);
     } catch (err) {
       console.warn(`Could not sync product ${prod.id}:`, err);
     }
@@ -310,44 +162,42 @@ const syncProductCatalog = async () => {
   localStorage.setItem(CATALOG_VERSION_KEY, CATALOG_VERSION);
 };
 
+const isRealProduct = (p) =>
+  p.type !== 'order' && !String(p.id).startsWith(ORDER_DOC_PREFIX);
+
 export const getProducts = async () => {
-  await ensureFirebaseAuth();
-  await syncProductCatalog();
+  const catalog = defaultProducts.map(normalizeProduct);
 
   try {
-    const querySnapshot = await getDocs(collection(db, 'products'));
-    let products = querySnapshot.docs.map((d) => mergeWithCatalogDefaults({ ...d.data(), id: d.id }));
+    await ensureFirebaseAuth();
+    await syncProductCatalog();
 
-    if (products.length === 0) {
-      for (const prod of defaultProducts) {
-        try {
-          await setDoc(doc(db, 'products', prod.id.toString()), prod);
-        } catch (err) {
-          console.warn(`Could not seed product ${prod.id}:`, err);
-        }
-      }
-      return defaultProducts.map(normalizeProduct);
+    const querySnapshot = await withTimeout(getDocs(collection(db, 'products')));
+    const cloudProducts = querySnapshot.docs
+      .map((d) => ({ ...d.data(), id: d.id }))
+      .filter(isRealProduct);
+
+    if (cloudProducts.length === 0) {
+      return catalog;
     }
 
-    const existingIds = new Set(products.map((p) => p.id.toString()));
-    for (const prod of defaultProducts) {
-      if (!existingIds.has(prod.id.toString())) {
-        try {
-          await setDoc(doc(db, 'products', prod.id.toString()), prod);
-        } catch (err) {
-          console.warn(`Could not add missing product ${prod.id}:`, err);
-        }
-      }
-    }
+    const cloudMap = new Map(cloudProducts.map((p) => [p.id.toString(), p]));
+    const mergedCatalog = catalog.map((item) => {
+      const cloud = cloudMap.get(item.id.toString());
+      if (!cloud) return item;
+      return normalizeProduct({ ...cloud, id: item.id });
+    });
 
-    const updatedSnapshot = await getDocs(collection(db, 'products'));
-    products = updatedSnapshot.docs
-      .map((d) => mergeWithCatalogDefaults({ ...d.data(), id: d.id }))
-      .filter((p) => p.type !== 'order' && !String(p.id).startsWith(ORDER_DOC_PREFIX));
-    return products.sort((a, b) => Number(a.id) - Number(b.id));
+    const extraProducts = cloudProducts
+      .filter((p) => !catalogById[p.id?.toString()])
+      .map(normalizeProduct);
+
+    return [...mergedCatalog, ...extraProducts].sort(
+      (a, b) => Number(a.id) - Number(b.id)
+    );
   } catch (err) {
-    console.warn('Firestore products unavailable, using local catalog:', err);
-    return defaultProducts.map(normalizeProduct);
+    console.warn('Firestore products unavailable, using local catalog:', err.message || err);
+    return catalog;
   }
 };
 
@@ -368,6 +218,17 @@ export const updateProduct = async (id, updatedFields) => {
 
 const getLocalOrders = () => safeParse(localStorage.getItem(ORDERS_KEY), []);
 
+let ordersBroadcast = null;
+try {
+  ordersBroadcast = new BroadcastChannel('juicebox-orders');
+} catch {
+  ordersBroadcast = null;
+}
+
+/** Instant read — use in admin for immediate display */
+export const getOrdersLocal = () =>
+  getLocalOrders().sort((a, b) => new Date(b.date) - new Date(a.date));
+
 const saveLocalOrder = (order) => {
   const orders = getLocalOrders();
   const index = orders.findIndex((o) => o.id === order.id);
@@ -378,6 +239,7 @@ const saveLocalOrder = (order) => {
   }
   safeSetItem(ORDERS_KEY, orders);
   window.dispatchEvent(new Event('ordersChange'));
+  ordersBroadcast?.postMessage({ type: 'orders-updated' });
 };
 
 const sanitizeCustomer = (customer = {}) => ({
@@ -578,55 +440,71 @@ export const updateOrderStatus = async (id, status) => {
   return updatedOrder;
 };
 
-export const subscribeToOrders = (callback) => {
-  let firestoreUnsub = () => {};
-
-  const emitNow = (cloudOrders = []) => {
+const notifyOrderListeners = (callback, cloudOrders = []) => {
+  try {
     const merged = mergeOrders(cloudOrders, getLocalOrders());
     callback(merged);
+  } catch (err) {
+    console.warn('Order listener error:', err);
+    callback(getOrdersLocal());
+  }
+};
+
+export const subscribeToOrders = (callback) => {
+  let firestoreUnsub = () => {};
+  let cancelled = false;
+
+  const pushUpdate = (cloudOrders = []) => {
+    if (!cancelled) notifyOrderListeners(callback, cloudOrders);
   };
 
-  // Show local orders instantly — never leave admin stuck on "Loading..."
-  emitNow([]);
+  // 1. Show local orders immediately (same browser)
+  pushUpdate([]);
 
   const refreshFromCloud = async () => {
     try {
       const cloudOrders = await fetchFirestoreOrders();
+      if (cancelled) return;
       cloudOrders.forEach((order) => saveLocalOrder(order));
-      emitNow(cloudOrders);
+      pushUpdate(cloudOrders);
     } catch (err) {
       console.warn('Cloud order refresh failed:', err.message || err);
-      emitNow([]);
+      if (!cancelled) pushUpdate([]);
     }
   };
 
+  // 2. Cloud sync in background (cross-device)
   refreshFromCloud();
 
   ensureFirebaseAuth().then(() => {
+    if (cancelled) return;
     firestoreUnsub = onSnapshot(
       collection(db, 'orders'),
       (snapshot) => {
         const cloudOrders = snapshot.docs.map((d) => parseOrderDoc(d.id, d.data()));
-        cloudOrders.forEach((order) => saveLocalOrder(order));
-        emitNow(cloudOrders);
+        pushUpdate(cloudOrders);
       },
       () => refreshFromCloud()
     );
   });
 
-  const onOrdersChange = () => emitNow([]);
+  const onLocalChange = () => pushUpdate([]);
   const onStorage = (e) => {
-    if (e.key === ORDERS_KEY) emitNow([]);
+    if (e.key === ORDERS_KEY) pushUpdate([]);
   };
+  const onBroadcast = () => pushUpdate([]);
 
-  window.addEventListener('ordersChange', onOrdersChange);
+  window.addEventListener('ordersChange', onLocalChange);
   window.addEventListener('storage', onStorage);
+  ordersBroadcast?.addEventListener('message', onBroadcast);
   const interval = setInterval(refreshFromCloud, 5000);
 
   return () => {
+    cancelled = true;
     firestoreUnsub();
-    window.removeEventListener('ordersChange', onOrdersChange);
+    window.removeEventListener('ordersChange', onLocalChange);
     window.removeEventListener('storage', onStorage);
+    ordersBroadcast?.removeEventListener('message', onBroadcast);
     clearInterval(interval);
   };
 };

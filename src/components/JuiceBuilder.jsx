@@ -52,7 +52,7 @@ const JuiceBuilder = ({ addToCart }) => {
       price: totalPrice,
       desc,
       quantity: 1,
-      image: 'https://images.unsplash.com/photo-1615486171448-4cbabacdc4a6?auto=format&fit=crop&q=80&w=400',
+      image: '/products/fallback-juice.svg',
     });
 
     setSelectedBase(baseFruits[0]);
