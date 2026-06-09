@@ -3,10 +3,11 @@
 // and localStorage for active session UserAuth tracking.
 
 import { db } from '../firebase';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, setDoc } from 'firebase/firestore';
+import { collection, getDocs, getDoc, addDoc, updateDoc, deleteDoc, doc, setDoc } from 'firebase/firestore';
 
 const USERS_KEY = 'juicebox_users';
 const CURRENT_USER_KEY = 'juicebox_current_user';
+const ORDERS_KEY = 'juicebox_orders';
 
 // Default products to populate if the database is empty
 const defaultProducts = [
@@ -133,30 +134,97 @@ export const updateProduct = async (id, updatedFields) => {
   await updateDoc(productRef, updatedFields);
 };
 
-// --- ORDERS (Firebase Firestore) ---
+// --- ORDERS (Firestore with localStorage fallback) ---
+
+const getLocalOrders = () => {
+  const stored = localStorage.getItem(ORDERS_KEY);
+  return stored ? JSON.parse(stored) : [];
+};
+
+const saveLocalOrder = (order) => {
+  const orders = getLocalOrders();
+  const index = orders.findIndex((o) => o.id === order.id);
+  if (index >= 0) {
+    orders[index] = order;
+  } else {
+    orders.push(order);
+  }
+  localStorage.setItem(ORDERS_KEY, JSON.stringify(orders));
+  window.dispatchEvent(new Event('ordersChange'));
+};
+
+const buildOrder = (order) => {
+  const orderId = 'ORD-' + Math.floor(100000 + Math.random() * 900000);
+  return {
+    ...order,
+    id: orderId,
+    status: order.status || 'Payment Pending',
+    date: new Date().toISOString(),
+    items: order.items.map(({ id, name, price, quantity, image }) => ({
+      id, name, price, quantity, image: image || null
+    }))
+  };
+};
+
+export const getOrderById = async (id) => {
+  const localOrder = getLocalOrders().find((o) => o.id === id);
+  if (localOrder) return localOrder;
+
+  try {
+    const docSnap = await getDoc(doc(db, 'orders', id));
+    if (docSnap.exists()) {
+      return { ...docSnap.data(), id: docSnap.id };
+    }
+  } catch (err) {
+    console.warn('Firestore order lookup failed:', err);
+  }
+
+  return null;
+};
 
 export const getOrders = async () => {
-  const querySnapshot = await getDocs(collection(db, 'orders'));
-  const orders = querySnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-  // Sort by date descending (newest first)
-  return orders.sort((a, b) => new Date(b.date) - new Date(a.date));
+  let firestoreOrders = [];
+  try {
+    const querySnapshot = await getDocs(collection(db, 'orders'));
+    firestoreOrders = querySnapshot.docs.map((d) => ({ ...d.data(), id: d.id }));
+  } catch (err) {
+    console.warn('Firestore orders fetch failed:', err);
+  }
+
+  const orderMap = new Map();
+  getLocalOrders().forEach((o) => orderMap.set(o.id, o));
+  firestoreOrders.forEach((o) => orderMap.set(o.id, o));
+
+  return Array.from(orderMap.values()).sort((a, b) => new Date(b.date) - new Date(a.date));
 };
 
 export const addOrder = async (order) => {
-  const orderId = 'ORD-' + Math.floor(100000 + Math.random() * 900000);
-  const newOrder = {
-    ...order,
-    id: orderId,
-    status: 'Pending',
-    date: new Date().toISOString()
-  };
-  
-  // Save order to Firestore with a custom readable ID
-  await setDoc(doc(db, 'orders', orderId), newOrder);
-  return newOrder;
+  const newOrder = buildOrder(order);
+
+  try {
+    await setDoc(doc(db, 'orders', newOrder.id), newOrder);
+    return { ...newOrder, storedLocally: false };
+  } catch (err) {
+    console.warn('Firestore save failed, storing order locally:', err);
+    const localOrder = { ...newOrder, storedLocally: true };
+    saveLocalOrder(localOrder);
+    return localOrder;
+  }
 };
 
 export const updateOrderStatus = async (id, status) => {
-  const orderRef = doc(db, 'orders', id.toString());
-  await updateDoc(orderRef, { status });
+  const localOrders = getLocalOrders();
+  const localIndex = localOrders.findIndex((o) => o.id === id);
+
+  if (localIndex >= 0) {
+    localOrders[localIndex] = { ...localOrders[localIndex], status };
+    localStorage.setItem(ORDERS_KEY, JSON.stringify(localOrders));
+    window.dispatchEvent(new Event('ordersChange'));
+  }
+
+  try {
+    await updateDoc(doc(db, 'orders', id.toString()), { status });
+  } catch (err) {
+    if (localIndex < 0) throw err;
+  }
 };

@@ -2,43 +2,94 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { db } from '../firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
+import { getOrderById } from '../services/db';
 import { ShieldCheck, CheckCircle, Smartphone, QrCode } from 'lucide-react';
 import { motion } from 'framer-motion';
+
+const PENDING_ORDER_KEY = 'juicebox_pending_order';
+
+const getStoredOrder = () => {
+    try {
+        const stored = sessionStorage.getItem(PENDING_ORDER_KEY);
+        return stored ? JSON.parse(stored) : null;
+    } catch {
+        return null;
+    }
+};
 
 const PaymentGateway = () => {
     const navigate = useNavigate();
     const location = useLocation();
-    
-    const orderData = location.state?.order; 
+
+    const orderData = location.state?.order || getStoredOrder();
     const [isProcessing, setIsProcessing] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
 
     useEffect(() => {
         if (!orderData) {
-            navigate('/', { replace: true }); 
+            navigate('/', { replace: true });
             return;
         }
 
-        const unsub = onSnapshot(doc(db, 'orders', orderData.id), (docSnap) => {
-            if (docSnap.exists()) {
-                const currentOrder = docSnap.data();
-                if (currentOrder.status === 'Preparing' || currentOrder.status === 'Completed') {
-                    setIsSuccess(true);
-                    setIsProcessing(false);
-                    setTimeout(() => {
-                        navigate('/my-orders', { replace: true, state: { paymentSuccess: true } });
-                    }, 3000);
-                }
-            }
-        });
+        let verified = false;
 
-        return () => unsub();
+        const handleVerified = () => {
+            if (verified) return;
+            verified = true;
+            setIsSuccess(true);
+            setIsProcessing(false);
+            sessionStorage.removeItem(PENDING_ORDER_KEY);
+            setTimeout(() => {
+                navigate('/my-orders', { replace: true, state: { paymentSuccess: true } });
+            }, 3000);
+        };
+
+        const checkOrderStatus = async () => {
+            const currentOrder = await getOrderById(orderData.id);
+            if (currentOrder?.status === 'Preparing' || currentOrder?.status === 'Completed') {
+                handleVerified();
+            }
+        };
+
+        if (orderData.storedLocally) {
+            checkOrderStatus();
+            const onOrdersChange = () => checkOrderStatus();
+            window.addEventListener('ordersChange', onOrdersChange);
+            const interval = setInterval(checkOrderStatus, 2000);
+            return () => {
+                window.removeEventListener('ordersChange', onOrdersChange);
+                clearInterval(interval);
+            };
+        }
+
+        let pollInterval;
+        const unsub = onSnapshot(
+            doc(db, 'orders', orderData.id),
+            (docSnap) => {
+                if (docSnap.exists()) {
+                    const currentOrder = docSnap.data();
+                    if (currentOrder.status === 'Preparing' || currentOrder.status === 'Completed') {
+                        handleVerified();
+                    }
+                }
+            },
+            (error) => {
+                console.warn('Firestore snapshot failed, polling order status:', error);
+                checkOrderStatus();
+                pollInterval = setInterval(checkOrderStatus, 2000);
+            }
+        );
+
+        return () => {
+            unsub();
+            if (pollInterval) clearInterval(pollInterval);
+        };
     }, [orderData, navigate]);
 
-    // Build the UPI Deep Link according to standard specifications
-    const upiLink = `upi://pay?pa=9344820371@ptsbi&pn=JuiceBox&am=${orderData.total}&cu=INR&tn=Order_${orderData.id}`;
-    
-    // Generate QR Code URL using api.qrserver.com
+    if (!orderData) return null;
+
+    const amount = Number(orderData.total).toFixed(2);
+    const upiLink = `upi://pay?pa=9344820371@ptsbi&pn=JuiceBox&am=${amount}&cu=INR&tn=Order_${orderData.id}`;
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(upiLink)}&margin=10`;
 
     const handleMockPayment = () => {

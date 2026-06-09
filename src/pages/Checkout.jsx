@@ -1,15 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, CheckCircle, Info, Lock } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Lock } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { addOrder, getCurrentUser } from '../services/db';
 import './Checkout.css';
 
+const PENDING_ORDER_KEY = 'juicebox_pending_order';
+
 const Checkout = ({ cartItems, clearCart }) => {
     const [orderComplete, setOrderComplete] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [error, setError] = useState('');
     const navigate = useNavigate();
 
     const user = getCurrentUser();
+    const nameParts = user?.name?.trim().split(/\s+/) || [];
+    const defaultFirstName = nameParts[0] || '';
+    const defaultLastName = nameParts.slice(1).join(' ') || '';
+    const defaultEmail = user?.email || '';
 
     useEffect(() => {
         if (!user) {
@@ -24,6 +32,8 @@ const Checkout = ({ cartItems, clearCart }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        setError('');
+        setIsSubmitting(true);
 
         const formData = new FormData(e.target);
         const orderData = {
@@ -41,11 +51,20 @@ const Checkout = ({ cartItems, clearCart }) => {
             status: 'Payment Pending'
         };
 
-        const savedOrder = await addOrder(orderData); // Save order for admin tracking
-
-        // Redirect to Mock Payment Gateway
-        navigate('/payment', { state: { order: savedOrder } });
-        clearCart();
+        try {
+            const savedOrder = await addOrder(orderData);
+            sessionStorage.setItem(PENDING_ORDER_KEY, JSON.stringify(savedOrder));
+            clearCart();
+            navigate('/payment', { state: { order: savedOrder } });
+        } catch (err) {
+            console.error('Failed to place order:', err);
+            const message = err?.code === 'permission-denied'
+                ? 'Unable to save your order. Please try again or contact support.'
+                : 'Something went wrong while placing your order. Please check your connection and try again.';
+            setError(message);
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     if (!user) return null; // Prevent flicker before redirect
@@ -83,10 +102,10 @@ const Checkout = ({ cartItems, clearCart }) => {
                         <form onSubmit={handleSubmit} className="card p-4">
                             <h3 className="mb-3">Contact Information</h3>
                             <div className="grid grid-cols-2 gap-3 mb-4">
-                                <input type="text" name="firstName" placeholder="First Name" required className="form-input" />
-                                <input type="text" name="lastName" placeholder="Last Name" required className="form-input" />
+                                <input type="text" name="firstName" placeholder="First Name" required className="form-input" defaultValue={defaultFirstName} />
+                                <input type="text" name="lastName" placeholder="Last Name" required className="form-input" defaultValue={defaultLastName} />
                             </div>
-                            <input type="email" name="email" placeholder="Email Address" required className="form-input mb-4 w-100" />
+                            <input type="email" name="email" placeholder="Email Address" required className="form-input mb-4 w-100" defaultValue={defaultEmail} />
                             <input type="tel" name="phone" placeholder="Phone Number" required className="form-input mb-4 w-100" />
 
                             <h3 className="mb-3">Delivery Address</h3>
@@ -102,12 +121,18 @@ const Checkout = ({ cartItems, clearCart }) => {
                                 <p className="mt-2 text-muted" style={{ fontSize: '0.85rem' }}>Accepted payment methods: UPI (GPay, PhonePe, Paytm), Credit/Debit Cards, and NetBanking.</p>
                             </div>
 
+                            {error && (
+                                <div className="p-3 mb-3 rounded text-center" style={{ backgroundColor: '#ffebee', color: '#c62828', fontSize: '0.9rem' }}>
+                                    {error}
+                                </div>
+                            )}
+
                             <button
                                 type="submit"
                                 className="btn btn-primary w-100 justify-content-center p-3 mt-4"
-                                disabled={cartItems.length === 0}
+                                disabled={cartItems.length === 0 || isSubmitting}
                             >
-                                Proced to Payment (₹{total.toFixed(2)})
+                                {isSubmitting ? 'Processing...' : `Proceed to Payment (₹${total.toFixed(2)})`}
                             </button>
                         </form>
                     </div>
