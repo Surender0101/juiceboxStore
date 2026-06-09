@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, Minus, Plus, ShoppingBag } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { formatINR } from '../utils/formatPrice';
 import './CartSidebar.css';
 
 const CartSidebar = ({ isOpen, onClose, cartItems, updateQuantity, removeFromCart }) => {
@@ -38,7 +39,7 @@ const CartSidebar = ({ isOpen, onClose, cartItems, updateQuantity, removeFromCar
                                                 <X size={16} />
                                             </button>
                                         </div>
-                                        <p className="cart-item-price">₹{item.price.toFixed(2)}</p>
+                                        <p className="cart-item-price">{formatINR(item.price)}</p>
                                         <div className="cart-item-controls">
                                             <button
                                                 onClick={() => updateQuantity(item.id, item.quantity - 1)}
@@ -67,7 +68,7 @@ const CartSidebar = ({ isOpen, onClose, cartItems, updateQuantity, removeFromCar
                         <div className="cart-summary mb-3">
                             <div className="d-flex justify-content-between mb-2">
                                 <span className="text-muted">Subtotal</span>
-                                <strong>₹{subtotal.toFixed(2)}</strong>
+                                <strong>{formatINR(subtotal)}</strong>
                             </div>
                             <p className="text-muted" style={{ fontSize: '0.85rem' }}>Shipping and taxes calculated at checkout.</p>
                         </div>

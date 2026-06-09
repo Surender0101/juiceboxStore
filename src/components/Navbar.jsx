@@ -8,7 +8,7 @@ import './Navbar.css';
 const Navbar = ({ toggleCart, cartCount }) => {
     const [isScrolled, setIsScrolled] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-    const [user, setUser] = useState(getCurrentUser());
+    const [user, setUser] = useState(() => getCurrentUser());
     const { isDarkMode, toggleTheme } = useTheme();
 
     useEffect(() => {
@@ -16,7 +16,11 @@ const Navbar = ({ toggleCart, cartCount }) => {
             setIsScrolled(window.scrollY > 20);
         };
         const handleAuthChange = () => {
-            setUser(getCurrentUser());
+            try {
+                setUser(getCurrentUser());
+            } catch {
+                setUser(null);
+            }
         };
         window.addEventListener('scroll', handleScroll);
         window.addEventListener('authChange', handleAuthChange);
@@ -43,9 +47,10 @@ const Navbar = ({ toggleCart, cartCount }) => {
                 {/* Desktop Nav */}
                 <div className="navbar-links desktop-only">
                     <a href="#home">Home</a>
-                    <a href="#about">About</a>
                     <a href="#menu">Menu</a>
-                    <a href="#locations">Locations</a>
+                    <a href="#builder">Build</a>
+                    <a href="#about">About</a>
+                    <a href="#locations">Stores</a>
                 </div>
 
                 {/* Actions */}
@@ -96,9 +101,10 @@ const Navbar = ({ toggleCart, cartCount }) => {
             {isMobileMenuOpen && (
                 <div className="mobile-menu glass">
                     <a href="#home" onClick={() => setIsMobileMenuOpen(false)}>Home</a>
-                    <a href="#about" onClick={() => setIsMobileMenuOpen(false)}>About</a>
                     <a href="#menu" onClick={() => setIsMobileMenuOpen(false)}>Menu</a>
-                    <a href="#locations" onClick={() => setIsMobileMenuOpen(false)}>Locations</a>
+                    <a href="#builder" onClick={() => setIsMobileMenuOpen(false)}>Build Your Juice</a>
+                    <a href="#about" onClick={() => setIsMobileMenuOpen(false)}>About</a>
+                    <a href="#locations" onClick={() => setIsMobileMenuOpen(false)}>Stores</a>
                     {user ? (
                         <>
                             {user.role === 'admin' ? (

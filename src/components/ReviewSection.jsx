@@ -1,51 +1,70 @@
 import React from 'react';
-import { Star } from 'lucide-react';
+import { Star, Quote } from 'lucide-react';
 import { motion } from 'framer-motion';
+import './ReviewSection.css';
 
 const reviews = [
-    { id: 1, name: 'Sarah Jenkins', role: 'Fitness Trainer', text: 'Best fresh juice in town! Super refreshing and healthy. The Mango Blast is my daily go-to after workouts.', image: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&q=80&w=150' },
-    { id: 2, name: 'David Chen', role: 'Local Guide', text: 'Love the custom juice builder. I can mix and match my favorite fruits. Always fresh and the delivery is super fast.', image: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=150' },
-    { id: 3, name: 'Emily Rosa', role: 'Food Blogger', text: 'The Green Detox actually tastes amazing compared to other places. 10/10 would recommend to anyone looking for a health boost.', image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=150' },
+  {
+    id: 1,
+    name: 'Priya Sundaram',
+    role: 'Yoga Instructor, Hosur',
+    text: 'The Green Detox is my morning ritual. Fresh, clean taste and delivered before my class starts. Absolutely love JuiceBox!',
+    image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=150',
+  },
+  {
+    id: 2,
+    name: 'Arjun Krishnan',
+    role: 'Software Engineer',
+    text: 'Custom juice builder is brilliant — I add ginger and protein to my orange base after gym. Best value at ₹99 starting price.',
+    image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=150',
+  },
+  {
+    id: 3,
+    name: 'Meera Reddy',
+    role: 'Food Blogger',
+    text: 'Tropical Sunrise tastes like vacation in a glass. The mango lassi fusion is authentic and not overly sweet. 10/10 recommend!',
+    image: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&q=80&w=150',
+  },
 ];
 
-const ReviewSection = () => {
-    return (
-        <section id="reviews" className="section-padding mb-4">
-            <div className="container">
-                <div className="text-center mb-4 pb-2">
-                    <span className="section-subtitle">Testimonials</span>
-                    <h2 className="heading-secondary">What Our Customers Say</h2>
-                </div>
+const ReviewSection = () => (
+  <section id="reviews" className="reviews section-padding">
+    <div className="container">
+      <div className="section-header text-center">
+        <span className="section-subtitle">Testimonials</span>
+        <h2 className="heading-secondary">Loved by Hosur</h2>
+        <p>Real reviews from customers who make JuiceBox part of their daily routine.</p>
+      </div>
 
-                <div className="grid grid-cols-3">
-                    {reviews.map((review, i) => (
-                        <motion.div
-                            key={review.id}
-                            className="card review-card text-center"
-                            initial={{ opacity: 0, y: 30 }}
-                            whileInView={{ opacity: 1, y: 0 }}
-                            viewport={{ once: true }}
-                            transition={{ duration: 0.5, delay: i * 0.1 }}
-                        >
-                            <div className="d-flex justify-content-center mb-3">
-                                {[...Array(5)].map((_, index) => (
-                                    <Star key={index} fill="var(--color-accent-mango)" color="var(--color-accent-mango)" size={18} />
-                                ))}
-                            </div>
-                            <p className="text-muted mb-4" style={{ fontStyle: 'italic' }}>"{review.text}"</p>
-                            <img
-                                src={review.image}
-                                alt={review.name}
-                                style={{ width: '60px', height: '60px', borderRadius: '50%', objectFit: 'cover', margin: '0 auto 10px auto' }}
-                            />
-                            <h4 style={{ marginBottom: '2px' }}>{review.name}</h4>
-                            <p className="text-muted" style={{ fontSize: '0.85rem' }}>{review.role}</p>
-                        </motion.div>
-                    ))}
-                </div>
+      <div className="grid grid-cols-3 reviews-grid">
+        {reviews.map((review, i) => (
+          <motion.div
+            key={review.id}
+            className="card review-card"
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5, delay: i * 0.1 }}
+          >
+            <Quote size={28} className="quote-icon" color="var(--color-primary)" />
+            <div className="d-flex align-center gap-1 mb-3">
+              {[...Array(5)].map((_, index) => (
+                <Star key={index} size={16} fill="#F4A261" color="#F4A261" />
+              ))}
             </div>
-        </section>
-    );
-};
+            <p className="review-text text-muted mb-4">&ldquo;{review.text}&rdquo;</p>
+            <div className="review-author d-flex align-center gap-3">
+              <img src={review.image} alt={review.name} className="review-avatar" />
+              <div>
+                <h4>{review.name}</h4>
+                <p className="text-muted">{review.role}</p>
+              </div>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+    </div>
+  </section>
+);
 
 export default ReviewSection;

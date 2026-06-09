@@ -1,0 +1,47 @@
+.reviews {
+  background: var(--color-bg-alt);
+}
+
+.reviews-grid {
+  gap: 1.5rem;
+}
+
+.review-card {
+  padding: 2rem;
+  position: relative;
+}
+
+.quote-icon {
+  opacity: 0.25;
+  margin-bottom: 0.5rem;
+}
+
+.review-text {
+  font-size: 0.95rem;
+  line-height: 1.7;
+  font-style: italic;
+}
+
+.review-author h4 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin-bottom: 0.1rem;
+}
+
+.review-author p {
+  font-size: 0.8rem;
+}
+
+.review-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--color-primary-light);
+}
+
+@media (max-width: 768px) {
+  .reviews-grid {
+    grid-template-columns: 1fr !important;
+  }
+}

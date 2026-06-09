@@ -1,11 +1,31 @@
 .juice-builder {
-    background: linear-gradient(135deg, rgba(255, 152, 0, 0.05) 0%, rgba(76, 175, 80, 0.05) 100%);
+    background: linear-gradient(160deg, var(--color-bg) 0%, var(--color-secondary-light) 100%);
     position: relative;
     overflow: hidden;
 }
 
 [data-theme='dark'] .juice-builder {
-    background: linear-gradient(135deg, rgba(255, 152, 0, 0.02) 0%, rgba(76, 175, 80, 0.02) 100%);
+    background: linear-gradient(160deg, var(--color-bg) 0%, rgba(45, 106, 79, 0.08) 100%);
+}
+
+.builder-title {
+    font-size: 1.25rem;
+    font-weight: 800;
+    margin: 0;
+}
+
+.step-label {
+    font-size: 0.9rem;
+    font-weight: 700;
+    margin-bottom: 0.75rem;
+    color: var(--color-text);
+}
+
+.builder-price-display .live-price {
+    font-size: 2.25rem;
+    font-weight: 800;
+    color: var(--color-primary);
+    letter-spacing: -0.02em;
 }
 
 .builder-visual {

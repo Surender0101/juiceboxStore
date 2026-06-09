@@ -44,45 +44,37 @@ const PaymentGateway = () => {
             }, 3000);
         };
 
+        const verifiedStatuses = ['Paid', 'Preparing', 'Completed'];
+
         const checkOrderStatus = async () => {
             const currentOrder = await getOrderById(orderData.id);
-            if (currentOrder?.status === 'Preparing' || currentOrder?.status === 'Completed') {
+            if (verifiedStatuses.includes(currentOrder?.status)) {
                 handleVerified();
             }
         };
 
-        if (orderData.storedLocally) {
-            checkOrderStatus();
-            const onOrdersChange = () => checkOrderStatus();
-            window.addEventListener('ordersChange', onOrdersChange);
-            const interval = setInterval(checkOrderStatus, 2000);
-            return () => {
-                window.removeEventListener('ordersChange', onOrdersChange);
-                clearInterval(interval);
-            };
-        }
+        checkOrderStatus();
+        const onOrdersChange = () => checkOrderStatus();
+        window.addEventListener('ordersChange', onOrdersChange);
+        const interval = setInterval(checkOrderStatus, 2000);
 
-        let pollInterval;
         const unsub = onSnapshot(
             doc(db, 'orders', orderData.id),
             (docSnap) => {
                 if (docSnap.exists()) {
                     const currentOrder = docSnap.data();
-                    if (currentOrder.status === 'Preparing' || currentOrder.status === 'Completed') {
+                    if (verifiedStatuses.includes(currentOrder.status)) {
                         handleVerified();
                     }
                 }
             },
-            (error) => {
-                console.warn('Firestore snapshot failed, polling order status:', error);
-                checkOrderStatus();
-                pollInterval = setInterval(checkOrderStatus, 2000);
-            }
+            () => checkOrderStatus()
         );
 
         return () => {
+            window.removeEventListener('ordersChange', onOrdersChange);
+            clearInterval(interval);
             unsub();
-            if (pollInterval) clearInterval(pollInterval);
         };
     }, [orderData, navigate]);
 

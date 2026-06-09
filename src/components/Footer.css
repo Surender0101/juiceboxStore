@@ -25,6 +25,15 @@
 
 .footer-desc {
     line-height: 1.6;
+    font-size: 0.9rem;
+}
+
+.footer-contact {
+    font-size: 0.85rem;
+}
+
+.footer-contact p {
+    line-height: 1.5;
 }
 
 .social-icon {

@@ -1,5 +1,6 @@
 import React from 'react';
 import Hero from '../components/Hero';
+import TrustBar from '../components/TrustBar';
 import About from '../components/About';
 import MenuSection from '../components/MenuSection';
 import JuiceBuilder from '../components/JuiceBuilder';
@@ -10,8 +11,9 @@ import ContactSection from '../components/ContactSection';
 
 const Home = ({ addToCart }) => {
     return (
-        <div className="home-page" style={{ paddingTop: '80px' }}>
+        <div className="home-page" style={{ paddingTop: '72px' }}>
             <Hero />
+            <TrustBar />
             <About />
             <MenuSection addToCart={addToCart} />
             <JuiceBuilder addToCart={addToCart} />
