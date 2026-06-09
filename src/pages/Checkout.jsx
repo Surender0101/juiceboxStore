@@ -47,6 +47,9 @@ const Checkout = ({ cartItems, clearCart }) => {
                 zipCode: formData.get('zipCode')
             },
             items: cartItems,
+            subtotal,
+            tax,
+            deliveryFee,
             total,
             status: 'Payment Pending'
         };

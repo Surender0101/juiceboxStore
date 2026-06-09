@@ -22,7 +22,13 @@ const Admin = () => {
   const [orders, setOrders] = useState([]);
   const [loadingOrders, setLoadingOrders] = useState(true);
   const [updatingOrderId, setUpdatingOrderId] = useState(null);
-  const user = getCurrentUser();
+  const [user, setUser] = useState(() => getCurrentUser());
+
+  useEffect(() => {
+    const syncUser = () => setUser(getCurrentUser());
+    window.addEventListener('authChange', syncUser);
+    return () => window.removeEventListener('authChange', syncUser);
+  }, []);
 
   const [newProduct, setNewProduct] = useState({
     name: '',
@@ -37,7 +43,7 @@ const Admin = () => {
   }, []);
 
   useEffect(() => {
-    if (!user || user.role !== 'admin') return undefined;
+    if (user?.role !== 'admin') return undefined;
 
     setLoadingOrders(true);
     const unsubscribe = subscribeToOrders((latestOrders) => {
@@ -46,7 +52,7 @@ const Admin = () => {
     });
 
     return unsubscribe;
-  }, [user]);
+  }, [user?.role]);
 
   const handleAddProduct = async (e) => {
     e.preventDefault();
@@ -213,13 +219,14 @@ const Admin = () => {
               </span>
             </div>
 
-            {loadingOrders ? (
-              <p className="text-muted">Loading orders...</p>
+            {loadingOrders && orders.length === 0 ? (
+              <p className="text-muted">Syncing orders from cloud...</p>
             ) : orders.length === 0 ? (
               <div className="text-center p-4">
                 <p className="text-muted mb-2">No orders yet.</p>
                 <p className="text-muted" style={{ fontSize: '0.85rem' }}>
-                  Place a test order from the menu, then return here to update its status.
+                  Place an order as a customer (checkout → payment page), then orders appear here automatically.
+                  Use the same browser for testing, or enable Firebase Anonymous Auth + Firestore rules for cross-device sync.
                 </p>
               </div>
             ) : (

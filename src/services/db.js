@@ -1,11 +1,21 @@
-import { db } from '../firebase';
-import { collection, getDocs, getDoc, addDoc, updateDoc, deleteDoc, doc, setDoc } from 'firebase/firestore';
+import { db, ensureFirebaseAuth } from '../firebase';
+import { collection, getDocs, getDoc, addDoc, updateDoc, deleteDoc, doc, setDoc, onSnapshot } from 'firebase/firestore';
 
 const USERS_KEY = 'juicebox_users';
 const CURRENT_USER_KEY = 'juicebox_current_user';
 const ORDERS_KEY = 'juicebox_orders';
 const CATALOG_VERSION_KEY = 'juicebox_catalog_version';
 const CATALOG_VERSION = '4';
+const ORDER_DOC_PREFIX = 'order_';
+const CLOUD_TIMEOUT_MS = 8000;
+
+const withTimeout = (promise, ms = CLOUD_TIMEOUT_MS) =>
+  Promise.race([
+    promise,
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Cloud request timed out')), ms)
+    ),
+  ]);
 
 export const ORDER_STATUSES = [
   'Payment Pending',
@@ -301,6 +311,7 @@ const syncProductCatalog = async () => {
 };
 
 export const getProducts = async () => {
+  await ensureFirebaseAuth();
   await syncProductCatalog();
 
   try {
@@ -330,7 +341,9 @@ export const getProducts = async () => {
     }
 
     const updatedSnapshot = await getDocs(collection(db, 'products'));
-    products = updatedSnapshot.docs.map((d) => mergeWithCatalogDefaults({ ...d.data(), id: d.id }));
+    products = updatedSnapshot.docs
+      .map((d) => mergeWithCatalogDefaults({ ...d.data(), id: d.id }))
+      .filter((p) => p.type !== 'order' && !String(p.id).startsWith(ORDER_DOC_PREFIX));
     return products.sort((a, b) => Number(a.id) - Number(b.id));
   } catch (err) {
     console.warn('Firestore products unavailable, using local catalog:', err);
@@ -367,24 +380,51 @@ const saveLocalOrder = (order) => {
   window.dispatchEvent(new Event('ordersChange'));
 };
 
+const sanitizeCustomer = (customer = {}) => ({
+  firstName: String(customer.firstName || ''),
+  lastName: String(customer.lastName || ''),
+  email: String(customer.email || ''),
+  phone: String(customer.phone || ''),
+  address: String(customer.address || ''),
+  city: String(customer.city || ''),
+  zipCode: String(customer.zipCode || ''),
+});
+
 const buildOrder = (order) => {
   const orderId = `ORD-${Math.floor(100000 + Math.random() * 900000)}`;
+  const items = (order.items || []).map(({ id, name, price, quantity, image, desc }) => ({
+    id: String(id),
+    name: String(name),
+    price: Number(price) || 0,
+    quantity: Number(quantity) || 1,
+    image: image ? String(image) : '',
+    desc: desc ? String(desc) : '',
+  }));
+
   return {
-    ...order,
     id: orderId,
     status: order.status || 'Payment Pending',
     date: new Date().toISOString(),
-    items: (order.items || []).map(({ id, name, price, quantity, image }) => ({
-      id: String(id),
-      name: String(name),
-      price: Number(price) || 0,
-      quantity: Number(quantity) || 1,
-      image: image || null,
-    })),
+    items,
     total: Number(order.total) || 0,
-    customer: order.customer || {},
+    customer: sanitizeCustomer(order.customer),
+    subtotal: Number(order.subtotal) || 0,
+    tax: Number(order.tax) || 0,
+    deliveryFee: Number(order.deliveryFee) || 0,
   };
 };
+
+const toFirestoreOrder = (order) => ({
+  id: order.id,
+  status: order.status,
+  date: order.date,
+  total: order.total,
+  subtotal: order.subtotal || 0,
+  tax: order.tax || 0,
+  deliveryFee: order.deliveryFee || 0,
+  customer: order.customer,
+  items: order.items,
+});
 
 const mergeOrders = (firestoreOrders, localOrders) => {
   const orderMap = new Map();
@@ -393,11 +433,76 @@ const mergeOrders = (firestoreOrders, localOrders) => {
   return Array.from(orderMap.values()).sort((a, b) => new Date(b.date) - new Date(a.date));
 };
 
+const parseOrderDoc = (docId, data) => {
+  const orderId = data.id || docId.replace(ORDER_DOC_PREFIX, '');
+  return { ...data, id: orderId };
+};
+
+const fetchFirestoreOrders = async () => {
+  await ensureFirebaseAuth();
+  const found = new Map();
+
+  try {
+    const ordersSnap = await withTimeout(getDocs(collection(db, 'orders')));
+    ordersSnap.docs.forEach((d) => {
+      const order = parseOrderDoc(d.id, d.data());
+      found.set(order.id, order);
+    });
+  } catch (err) {
+    console.warn('orders collection read failed:', err.message || err);
+  }
+
+  try {
+    const productsSnap = await withTimeout(getDocs(collection(db, 'products')));
+    productsSnap.docs.forEach((d) => {
+      const data = d.data();
+      if (data.type === 'order' || d.id.startsWith(ORDER_DOC_PREFIX)) {
+        const order = parseOrderDoc(d.id, data);
+        found.set(order.id, order);
+      }
+    });
+  } catch (err) {
+    console.warn('products order fallback read failed:', err.message || err);
+  }
+
+  return Array.from(found.values());
+};
+
+const saveOrderToCloud = async (order) => {
+  await ensureFirebaseAuth();
+  const payload = toFirestoreOrder(order);
+
+  try {
+    await withTimeout(setDoc(doc(db, 'orders', order.id), payload));
+    return true;
+  } catch (err) {
+    console.warn('orders collection write failed, using products fallback:', err.message || err);
+  }
+
+  try {
+    await withTimeout(
+      setDoc(doc(db, 'products', `${ORDER_DOC_PREFIX}${order.id}`), {
+        ...payload,
+        type: 'order',
+        name: `Order ${order.id}`,
+        category: 'Order',
+        price: order.total,
+        image: order.items?.[0]?.image || '',
+      })
+    );
+    return true;
+  } catch (err) {
+    console.warn('products order fallback write failed:', err.message || err);
+    return false;
+  }
+};
+
 export const getOrderById = async (id) => {
   const localOrder = getLocalOrders().find((o) => o.id === id);
   if (localOrder) return localOrder;
 
   try {
+    await ensureFirebaseAuth();
     const docSnap = await getDoc(doc(db, 'orders', id));
     if (docSnap.exists()) {
       const order = { ...docSnap.data(), id: docSnap.id };
@@ -412,12 +517,10 @@ export const getOrderById = async (id) => {
 };
 
 export const getOrders = async () => {
-  const localOrders = getLocalOrders();
   let firestoreOrders = [];
 
   try {
-    const querySnapshot = await getDocs(collection(db, 'orders'));
-    firestoreOrders = querySnapshot.docs.map((d) => ({ ...d.data(), id: d.id }));
+    firestoreOrders = await fetchFirestoreOrders();
     firestoreOrders.forEach((order) => saveLocalOrder(order));
   } catch (err) {
     console.warn('Firestore orders fetch failed, using local orders:', err);
@@ -427,20 +530,19 @@ export const getOrders = async () => {
 };
 
 export const addOrder = async (order) => {
-  const newOrder = buildOrder(order);
+  const newOrder = buildOrder({
+    ...order,
+    subtotal: order.subtotal,
+    tax: order.tax,
+    deliveryFee: order.deliveryFee,
+  });
 
-  // Always save locally first so admin tab on same browser sees orders immediately
   saveLocalOrder({ ...newOrder, storedLocally: true });
 
-  try {
-    await setDoc(doc(db, 'orders', newOrder.id), { ...newOrder, storedLocally: false });
-    const syncedOrder = { ...newOrder, storedLocally: false };
-    saveLocalOrder(syncedOrder);
-    return syncedOrder;
-  } catch (err) {
-    console.warn('Firestore save failed, order kept in local storage:', err);
-    return { ...newOrder, storedLocally: true };
-  }
+  const syncedToCloud = await saveOrderToCloud(newOrder);
+  const finalOrder = { ...newOrder, storedLocally: !syncedToCloud };
+  saveLocalOrder(finalOrder);
+  return finalOrder;
 };
 
 export const updateOrderStatus = async (id, status) => {
@@ -460,32 +562,69 @@ export const updateOrderStatus = async (id, status) => {
   saveLocalOrder(updatedOrder);
 
   try {
-    await setDoc(doc(db, 'orders', id.toString()), updatedOrder, { merge: true });
+    await ensureFirebaseAuth();
+    const patch = { status, updatedAt: new Date().toISOString() };
+    try {
+      await withTimeout(setDoc(doc(db, 'orders', id.toString()), patch, { merge: true }));
+    } catch {
+      await withTimeout(
+        setDoc(doc(db, 'products', `${ORDER_DOC_PREFIX}${id}`), patch, { merge: true })
+      );
+    }
   } catch (err) {
-    console.warn('Firestore status update failed, saved locally:', err);
+    console.warn('Cloud status update failed, saved locally:', err.message || err);
   }
 
   return updatedOrder;
 };
 
 export const subscribeToOrders = (callback) => {
-  const refresh = async () => {
-    const orders = await getOrders();
-    callback(orders);
+  let firestoreUnsub = () => {};
+
+  const emitNow = (cloudOrders = []) => {
+    const merged = mergeOrders(cloudOrders, getLocalOrders());
+    callback(merged);
   };
 
-  refresh();
+  // Show local orders instantly — never leave admin stuck on "Loading..."
+  emitNow([]);
 
-  const onOrdersChange = () => refresh();
+  const refreshFromCloud = async () => {
+    try {
+      const cloudOrders = await fetchFirestoreOrders();
+      cloudOrders.forEach((order) => saveLocalOrder(order));
+      emitNow(cloudOrders);
+    } catch (err) {
+      console.warn('Cloud order refresh failed:', err.message || err);
+      emitNow([]);
+    }
+  };
+
+  refreshFromCloud();
+
+  ensureFirebaseAuth().then(() => {
+    firestoreUnsub = onSnapshot(
+      collection(db, 'orders'),
+      (snapshot) => {
+        const cloudOrders = snapshot.docs.map((d) => parseOrderDoc(d.id, d.data()));
+        cloudOrders.forEach((order) => saveLocalOrder(order));
+        emitNow(cloudOrders);
+      },
+      () => refreshFromCloud()
+    );
+  });
+
+  const onOrdersChange = () => emitNow([]);
   const onStorage = (e) => {
-    if (e.key === ORDERS_KEY) refresh();
+    if (e.key === ORDERS_KEY) emitNow([]);
   };
 
   window.addEventListener('ordersChange', onOrdersChange);
   window.addEventListener('storage', onStorage);
-  const interval = setInterval(refresh, 4000);
+  const interval = setInterval(refreshFromCloud, 5000);
 
   return () => {
+    firestoreUnsub();
     window.removeEventListener('ordersChange', onOrdersChange);
     window.removeEventListener('storage', onStorage);
     clearInterval(interval);
